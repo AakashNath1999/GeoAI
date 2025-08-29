@@ -1,0 +1,21 @@
+# Prefer using environment.yml (conda) for the geo stack (GDAL/Rasterio/GEOS).
+# This pip list assumes you ALREADY installed GDAL/GEOS/Proj via system/conda.
+earthengine-api
+google-auth
+google-auth-oauthlib
+geopy
+osmnx
+networkx
+numpy
+pandas
+scipy
+matplotlib
+tqdm
+requests
+langchain
+langgraph
+langchain-community
+langchain-ollama
+pydantic>=2
+python-dotenv
+rich

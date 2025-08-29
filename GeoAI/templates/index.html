@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoAI Route Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #0b0f16; color: #e8eef8;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* Map leaves room for the right sidebar */
+    #map { position: fixed; inset: 0 440px 0 0; }
+
+    .brand {
+      position: fixed; top: 12px; left: 12px; z-index: 500;
+      background: rgba(15, 22, 34, .85); backdrop-filter: blur(6px);
+      border: 1px solid #1d2635; border-radius: 10px; padding: 8px 12px;
+      font-weight: 700; color: #8ab4ff; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+
+    /* Right sidebar panel */
+    .panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 440px; z-index: 600;
+      background: rgba(9, 13, 20, .92); backdrop-filter: blur(8px);
+      border-left: 1px solid #1d2635;
+      display: grid; grid-template-rows: auto auto auto 1fr; gap: 12px;
+      padding: 12px;
+    }
+
+    /* Top row: prompt + buttons + status (vertical stacking for narrow width) */
+    .cmdbar {
+      display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start;
+    }
+    .input-wrap { display: grid; gap: 8px; }
+    label { font-size: 16px; color: #9fb3c8; }
+    input[type="text"] {
+      width: 100%; height: 44px;
+      background: #0f1622; border: 1px solid #223049; color: #e8eef8;
+      border-radius: 10px; padding: 0 14px; outline: none;
+    }
+    input[type="text"]::placeholder { color: #99a7bd; }
+
+    .btnrow { display: grid; grid-auto-flow: column; gap: 10px; }
+    button {
+      height: 44px; min-width: 110px;
+      border: 1px solid #2c4cff; background: #2952ff; color: #fff;
+      border-radius: 10px; font-weight: 700; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 6px 18px rgba(41,82,255,.35);
+      padding: 0 14px;
+    }
+    button.secondary {
+      border: 1px solid #2a3b57; background: #152235; box-shadow: none;
+    }
+    button:disabled { opacity: .65; cursor: not-allowed; box-shadow: none; }
+
+    .status {
+      font-size: 14px; color: #9fb3c8;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Progress */
+    .progress-wrap { font-size: 14px; }
+    .progress-head {
+      display: flex; justify-content: space-between; margin-bottom: 6px; color: #9fb3c8;
+    }
+    .progress-bar {
+      background: #222; height: 8px; border-radius: 6px; overflow: hidden;
+    }
+    .progress-bar > div { height: 100%; width: 0%; background: #3fa7ff; }
+
+    /* Logs */
+    .logs {
+      background: #0f1622; border: 1px solid #223049; color: #dbe7ff;
+      border-radius: 10px; padding: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px; line-height: 1.35; overflow: auto;
+    }
+    .log-line { white-space: pre-wrap; }
+    .log-info { color: #cfe1ff; }
+    .log-warn { color: #ffd27d; }
+    .log-error { color: #ffb3b3; }
+    .log-good { color: #9fffa7; }
+
+    /* Spinner dot */
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 0.9s infinite ease-in-out; }
+    @keyframes pulse { 0%,100%{ opacity:.4 } 50%{ opacity:1 } }
+
+    /* Mobile: collapse to bottom panel */
+    @media (max-width: 900px) {
+      #map { inset: 0 0 320px 0; }
+      .panel {
+        top: auto; left: 0; right: 0; bottom: 0; width: auto;
+        border-left: none; border-top: 1px solid #1d2635;
+        grid-template-rows: auto auto auto 1fr; max-height: 320px;
+      }
+      .btnrow { grid-auto-flow: row; }
+    }
+  </style>
+</head>
+<body>
+  <div class="brand">GeoAI</div>
+  <div id="map" role="application" aria-label="OSM map"></div>
+
+  <aside class="panel" aria-label="Controls and Output">
+    <div class="cmdbar">
+      <div class="input-wrap">
+        <label for="prompt">Route prompt</label>
+        <input id="prompt" type="text"
+               placeholder='e.g. "Optimal road from Gachibowli to Charminar avoiding water"'
+               aria-label="Enter route prompt" />
+      </div>
+
+      <div class="btnrow">
+        <button id="runBtn" aria-label="Create route">
+          <span class="dot" id="spinner" style="display:none"></span>
+          <span id="btnLabel">Create</span>
+        </button>
+        <button id="loadBtn" class="secondary" aria-label="Load last">Load</button>
+      </div>
+
+      <div class="status" id="status" aria-live="polite">Ready</div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-head">
+        <span id="step-text">Idle</span>
+        <span id="percent-text">0%</span>
+      </div>
+      <div class="progress-bar"><div id="progress-bar"></div></div>
+    </div>
+
+    <div class="logs" id="log-box" aria-live="polite" aria-label="Live logs"></div>
+  </aside>
+
+  <script>
+    // ---------------- Map init ----------------
+    const map = L.map('map', { zoomControl: true }).setView([17.385, 78.4867], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let routeLayer = null;
+
+    // --------------- UI helpers ---------------
+    const $ = (id) => document.getElementById(id);
+    function setStatus(msg) { $('status').textContent = msg; }
+    function setLoading(isLoading) {
+      $('runBtn').disabled = isLoading;
+      $('spinner').style.display = isLoading ? 'inline-block' : 'none';
+      $('btnLabel').textContent = isLoading ? 'Working…' : 'Create';
+    }
+    function setProgress(step, pct) {
+      $('step-text').textContent = step || '…';
+      const p = Math.max(0, Math.min(100, +pct || 0));
+      $('percent-text').textContent = p + '%';
+      $('progress-bar').style.width = p + '%';
+    }
+    function classifyLog(line) {
+      const s = line.toLowerCase();
+      if (s.includes('error') || s.includes('❗')) return 'log-error';
+      if (s.includes('warning') || s.includes('warn')) return 'log-warn';
+      if (s.includes('✅') || s.includes('completed')) return 'log-good';
+      return 'log-info';
+    }
+    function appendLogs(lines, startIdx=0) {
+      const box = $('log-box');
+      for (let i = startIdx; i < lines.length; i++) {
+        const div = document.createElement('div');
+        div.className = 'log-line ' + classifyLog(lines[i]);
+        div.textContent = lines[i];
+        box.appendChild(div);
+      }
+      if (lines.length > startIdx) box.scrollTop = box.scrollHeight;
+    }
+    function drawRoute(fc) {
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.geoJSON(fc, { style: { weight: 5, opacity: 0.95 } }).addTo(map);
+      try { map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] }); } catch (e) {}
+    }
+
+    // --------------- Async flow ---------------
+    let pollTimer = null;
+    let lastLogLen = 0;
+
+    async function startTask() {
+      const prompt = $('prompt').value.trim();
+      if (!prompt) { alert('Please enter a prompt'); $('prompt').focus(); return; }
+
+      setLoading(true);
+      setStatus('Starting…');
+      setProgress('Starting…', 1);
+      $('log-box').textContent = '';
+      lastLogLen = 0;
+
+      // Kick off backend
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setLoading(false);
+        setStatus('Error');
+        appendLogs([`[client] Failed to start: ${data.error || 'unknown'}`]);
+        return;
+      }
+
+      // Poll status+logs
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollOnce, 1000);
+    }
+
+    async function pollOnce() {
+      try {
+        const [statRes, logsRes] = await Promise.all([
+          fetch('/api/status'),
+          fetch('/api/logs')
+        ]);
+        const stat = await statRes.json();
+        const logData = await logsRes.json();
+
+        setStatus(stat.status);
+        setProgress(stat.step || stat.status, stat.percent ?? 0);
+
+        const lines = logData.logs || [];
+        appendLogs(lines, lastLogLen);
+        if (lines.length > lastLogLen) lastLogLen = lines.length;
+
+        if (stat.status === 'done') {
+          clearInterval(pollTimer); pollTimer = null;
+          setLoading(false);
+          setStatus('Completed ✅');
+          // Fetch final GeoJSON
+          const r = await fetch('/api/route');
+          const j = await r.json();
+          if (j.ok && j.route) drawRoute(j.route);
+          else appendLogs([`[client] No route returned: ${j.error || 'unknown'}`]);
+        } else if (stat.status === 'error') {
+          clearInterval(pollTimer); pollTimer = null;
+          setLoading(false);
+          setStatus('Error ❌');
+          appendLogs([`[client] Pipeline error: ${stat.error || 'unknown'}`]);
+        }
+      } catch (e) {
+        console.error(e);
+        appendLogs([`[client] Polling failed: ${e.message || e}`]);
+      }
+    }
+
+    async function loadLast() {
+      setStatus('Loading last route…');
+      try {
+        const res = await fetch('/api/route');
+        const data = await res.json();
+        if (data.ok && data.route) {
+          drawRoute(data.route);
+          setStatus('Loaded');
+        } else {
+          setStatus('No route');
+          appendLogs([`[client] Load failed: ${data.error || 'no route'}`]);
+        }
+      } catch (e) {
+        setStatus('Error');
+        appendLogs([`[client] Load failed: ${e.message || e}`]);
+      }
+    }
+
+    // --------------- Wire events ---------------
+    $('runBtn').addEventListener('click', startTask);
+    $('loadBtn').addEventListener('click', loadLast);
+    $('prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter') startTask(); });
+
+    // Map interaction
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.touchZoom.enable();
+
+    // Focus prompt on load
+    window.addEventListener('load', () => { try { $('prompt').focus(); } catch (e) {} });
+  </script>
+</body>
+</html>

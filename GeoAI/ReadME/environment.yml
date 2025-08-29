@@ -1,0 +1,37 @@
+name: geoai
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  # --- Core geo stack (use conda to avoid GDAL headaches) ---
+  - gdal
+  - rasterio
+  - geopandas
+  - shapely
+  - fiona
+  - pyproj
+  - rtree
+  - osmnx
+  - networkx
+  # --- Numerics / utils ---
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - tqdm
+  - requests
+  - jupyterlab
+  # --- Pip-only deps ---
+  - pip:
+      - earthengine-api
+      - google-auth
+      - google-auth-oauthlib
+      - geopy
+      - langchain
+      - langgraph
+      - langchain-community
+      - langchain-ollama
+      - pydantic>=2
+      - python-dotenv
+      - rich

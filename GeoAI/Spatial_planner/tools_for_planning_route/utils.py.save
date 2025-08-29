@@ -1,0 +1,17 @@
+# tools/utils.py
+
+from pathlib import Path
+
+def get_project_paths():
+    SCRIPT_DIR = Path(__file__).resolve().parent         # tools/
+    PROJECT_ROOT = SCRIPT_DIR.parent                     # GeoAI/
+
+    DATA_DIR = PROJECT_ROOT / "GEE_Download"             # Output folder
+    TASK_INFO_FILE = PROJECT_ROOT / "current_task_info.json"  # Task metadata
+
+    # Ensure folders exist
+    DATA_DIR.mkdir(exist_ok=True)
+    TASK_INFO_FILE.parent.mkdir(exist_ok=True)
+
+    return DATA_DIR, TASK_INFO_FILE
+

@@ -1,0 +1,422 @@
+[
+  {
+    "instruction": "Give me a route between Juhu and Kurla West in Mumbai avoiding water and buildings but prioritizing roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Mumbai",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.4, "penalty": 0 },
+        "road": { "weight": -30, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 500 }
+      },
+      "start_point": { "place": "Juhu"},
+      "end_point": { "place": "Kurla West"}
+    }
+  },
+  {
+    "instruction": "Give me a path between Thane and Kanjur West avoiding water but prioritizing roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Mumbai",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.4, "penalty": 0 },
+        "road": { "weight": -40, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 500 }
+      },
+      "start_point": { "place": "Thane"},
+      "end_point": { "place": "Kanjur West"}
+    }
+  },
+  {
+    "instruction": "Find a route from Andheri to Bandra avoiding steep slopes and highways.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Mumbai",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.7, "penalty": 500 },
+        "road": { "weight": -10, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 300 }
+      },
+      "start_point": { "place": "Andheri"},
+      "end_point": { "place": "Bandra"}
+    }
+  },
+  {
+    "instruction": "I want a scenic route from Colaba to Fort avoiding urban areas and water.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Mumbai",
+      "cost_config": {
+        "lulc": { "weight": 0.6, "penalty": 200 },
+        "slope": { "weight": 0.4, "penalty": 0 },
+        "road": { "weight": -20, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 800 }
+      },
+      "start_point": { "place": "Colaba"},
+      "end_point": { "place": "Fort"}
+    }
+  },
+  {
+    "instruction": "Compute the fastest route from Malad to Goregaon, prioritize roads, ignore slope.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Mumbai",
+      "cost_config": {
+        "lulc": { "weight": 0.4, "penalty": 0 },
+        "slope": { "weight": 0.1, "penalty": 0 },
+        "road": { "weight": -40, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 200 }
+      },
+      "start_point": { "place": "Malad"},
+      "end_point": { "place": "Goregaon"}
+    }
+  },
+  {
+    "instruction": "Find a safe landslide-avoiding route from Gangtok to Siliguri prioritizing roads and avoiding steep slopes.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Sikkim",
+      "cost_config": {
+        "lulc": { "weight": 0.4, "penalty": 0 },
+        "slope": { "weight": 0.6, "penalty": 800 },
+        "road": { "weight": -30, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 200 },
+        "building": { "weight": 0, "penalty": 100 }
+      },
+      "start_point": { "place": "Gangtok"},
+      "end_point": { "place": "Siliguri"}
+    }
+  },
+  {
+    "instruction": "Plan a bike-friendly route from MG Road to Electronic City in Bengaluru avoiding highways but preferring local roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Bengaluru",
+      "cost_config": {
+        "lulc": { "weight": 0.4, "penalty": 0 },
+        "slope": { "weight": 0.3, "penalty": 0 },
+        "road": { "weight": -25, "penalty": 100 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 200 }
+      },
+      "start_point": { "place": "MG Road"},
+      "end_point": { "place": "Electronic City"}
+    }
+  },
+  {
+    "instruction": "Find a flood-safe route from Patna Junction to Kankarbagh avoiding areas near the Ganga River.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Patna",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.3, "penalty": 0 },
+        "road": { "weight": -30, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 8000 },
+        "building": { "weight": 0, "penalty": 400 }
+      },
+      "start_point": { "place": "Patna Junction" },
+      "end_point": { "place": "Kankarbagh" }
+    }
+  },
+  {
+    "instruction": "Compute a cyclone-evacuation route in Puri from Jagannath Temple to Puri Railway Station avoiding coastal roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Puri",
+      "cost_config": {
+        "lulc": { "weight": 0.4, "penalty": 0 },
+        "slope": { "weight": 0.2, "penalty": 0 },
+        "road": { "weight": -25, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 9999 },
+        "building": { "weight": 0, "penalty": 300 }
+      },
+      "start_point": { "place": "Jagannath Temple" },
+      "end_point": { "place": "Puri Railway Station" }
+    }
+  },
+  {
+    "instruction": "Plan a rural road route from Sitapur to Hardoi avoiding forest reserves and wetlands.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Uttar Pradesh",
+      "cost_config": {
+        "lulc": { "weight": 0.6, "penalty": 300 },
+        "slope": { "weight": 0.3, "penalty": 0 },
+        "road": { "weight": -20, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 6000 },
+        "building": { "weight": 0, "penalty": 100 }
+      },
+      "start_point": { "place": "Sitapur" },
+      "end_point": { "place": "Hardoi" }
+    }
+  },
+  {
+    "instruction": "Generate a truck-friendly logistics route from Nhava Sheva Port to Bhiwandi avoiding narrow city roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Maharashtra",
+      "cost_config": {
+        "lulc": { "weight": 0.3, "penalty": 0 },
+        "slope": { "weight": 0.2, "penalty": 0 },
+        "road": { "weight": -50, "penalty": 200 },
+        "water": { "weight": 0, "penalty": 5000 },
+        "building": { "weight": 0, "penalty": 500 }
+      },
+      "start_point": { "place": "Nhava Sheva Port" },
+      "end_point": { "place": "Bhiwandi" }
+    }
+  },
+  {
+    "instruction": "Find a monsoon-safe route from Guwahati to Shillong avoiding landslide-prone slopes and riversides.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Assam",
+      "cost_config": {
+        "lulc": { "weight": 0.4, "penalty": 0 },
+        "slope": { "weight": 0.7, "penalty": 900 },
+        "road": { "weight": -25, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 8000 },
+        "building": { "weight": 0, "penalty": 200 }
+      },
+      "start_point": { "place": "Guwahati" },
+      "end_point": { "place": "Shillong" }
+    }
+  },
+  {
+    "instruction": "Compute a night-safe pedestrian route in Lucknow from Charbagh to Hazratganj avoiding poorly lit alleys.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Lucknow",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.2, "penalty": 0 },
+        "road": { "weight": -20, "penalty": 200 },
+        "water": { "weight": 0, "penalty": 3000 },
+        "building": { "weight": 0, "penalty": 600 }
+      },
+      "start_point": { "place": "Charbagh" },
+      "end_point": { "place": "Hazratganj" }
+    }
+  },
+  {
+    "instruction": "Plan a pilgrimage walking path from Haridwar to Rishikesh prioritizing ghats but avoiding highways.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Uttarakhand",
+      "cost_config": {
+        "lulc": { "weight": 0.6, "penalty": 0 },
+        "slope": { "weight": 0.3, "penalty": 0 },
+        "road": { "weight": -15, "penalty": 300 },
+        "water": { "weight": 0, "penalty": 7000 },
+        "building": { "weight": 0, "penalty": 500 }
+      },
+      "start_point": { "place": "Haridwar" },
+      "end_point": { "place": "Rishikesh" }
+    }
+  },
+  {
+    "instruction": "Compute an emergency ambulance route in Kolkata from Howrah Station to Apollo Gleneagles avoiding congested markets.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Kolkata",
+      "cost_config": {
+        "lulc": { "weight": 0.3, "penalty": 0 },
+        "slope": { "weight": 0.1, "penalty": 0 },
+        "road": { "weight": -50, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 6000 },
+        "building": { "weight": 0, "penalty": 700 }
+      },
+      "start_point": { "place": "Howrah Station" },
+      "end_point": { "place": "Apollo Gleneagles" }
+    }
+  },
+  {
+    "instruction": "Find a scenic bike route in Goa from Panjim to Old Goa avoiding highways but preferring coastal roads.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Goa",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.2, "penalty": 0 },
+        "road": { "weight": -25, "penalty": 100 },
+        "water": { "weight": 0, "penalty": 4000 },
+        "building": { "weight": 0, "penalty": 300 }
+      },
+      "start_point": { "place": "Panjim" },
+      "end_point": { "place": "Old Goa" }
+    }
+  },
+  {
+    "instruction": "Plan a cross-border trade route from Moreh in Manipur to Tamu in Myanmar avoiding forest reserves.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Manipur",
+      "cost_config": {
+        "lulc": { "weight": 0.7, "penalty": 500 },
+        "slope": { "weight": 0.4, "penalty": 300 },
+        "road": { "weight": -40, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 5000 },
+        "building": { "weight": 0, "penalty": 200 }
+      },
+      "start_point": { "place": "Moreh" },
+      "end_point": { "place": "Tamu" }
+    }
+  },
+  {
+    "instruction": "Generate a tourist walking route in Jaipur from Hawa Mahal to Amer Fort avoiding crowded bazaars.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Jaipur",
+      "cost_config": {
+        "lulc": { "weight": 0.5, "penalty": 0 },
+        "slope": { "weight": 0.3, "penalty": 0 },
+        "road": { "weight": -15, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 200 },
+        "building": { "weight": 0, "penalty": 400 }
+      },
+      "start_point": { "place": "Hawa Mahal"},
+      "end_point": { "place": "Amer Fort"}
+    }
+  },
+  {
+    "instruction": "Compute an eco-friendly walking route from India Gate to Red Fort in Delhi maximizing green cover.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Delhi",
+      "cost_config": {
+        "lulc": { "weight": 0.6, "penalty": 0 },
+        "slope": { "weight": 0.2, "penalty": 0 },
+        "road": { "weight": -10, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 200 },
+        "building": { "weight": 0, "penalty": 300 }
+      },
+      "start_point": { "place": "India Gate"},
+      "end_point": { "place": "Red Fort"}
+    }
+  },
+  {
+    "instruction": "Plan a hiking trail from Dharamshala to Triund avoiding steep cliffs but maximizing scenic forest cover.",
+    "json_output": {
+      "task_type": "route_planning",
+      "place_name": "Himachal Pradesh",
+      "cost_config": {
+        "lulc": { "weight": 0.7, "penalty": 0 },
+        "slope": { "weight": 0.7, "penalty": 800 },
+        "road": { "weight": -50, "penalty": 0 },
+        "water": { "weight": 0, "penalty": 500 },
+        "building": { "weight": 0, "penalty": 100 }
+      },
+      "start_point": { "place": "Dharamshala"},
+      "end_point": { "place": "Triund"}
+    }
+  },
+  {
+    "instruction": "Download DEM, slope, and LULC data for Mahesana for GIS analysis.",
+    "json_output": {
+      "task_type": "download_data",
+      "place_name": "Mahesana",
+      "data_requirements": {
+        "dem": true,
+        "slope": true,
+        "lulc": true,
+        "road": false,
+        "water": false,
+        "building": false
+      },
+      "output_paths": {
+        "dem_raster": null,
+        "slope_raster": null,
+        "lulc_raster": null
+      }
+    }
+  },
+  {
+    "instruction": "Retrieve DEM and LULC data for Surat city for planning purposes.",
+    "json_output": {
+      "task_type": "download_data",
+      "place_name": "Surat",
+      "data_requirements": {
+        "dem": true,
+        "slope": false,
+        "lulc": true,
+        "road": false,
+        "water": false,
+        "building": false
+      },
+      "output_paths": {
+        "dem_raster": null,
+        "slope_raster": null,
+        "lulc_raster": null
+      }
+    }
+  },
+  {
+    "instruction": "Get slope and DEM layers for Pune for a terrain analysis study.",
+    "json_output": {
+      "task_type": "download_data",
+      "place_name": "Pune",
+      "data_requirements": {
+        "dem": true,
+        "slope": true,
+        "lulc": false,
+        "road": false,
+        "water": false,
+        "building": false
+      },
+      "output_paths": {
+        "dem_raster": null,
+        "slope_raster": null,
+        "lulc_raster": null
+      }
+    }
+  },
+  {
+    "instruction": "Download DEM, slope, LULC, and road data for Jaipur for route planning.",
+    "json_output": {
+      "task_type": "download_data",
+      "place_name": "Jaipur",
+      "data_requirements": {
+        "dem": true,
+        "slope": true,
+        "lulc": true,
+        "road": true,
+        "water": false,
+        "building": false
+      },
+      "output_paths": {
+        "dem_raster": null,
+        "slope_raster": null,
+        "lulc_raster": null
+      }
+    }
+  },
+  {
+    "instruction": "Fetch DEM, LULC, and waterbody layers for Kolkata for flood analysis.",
+    "json_output": {
+      "task_type": "download_data",
+      "place_name": "Kolkata",
+      "data_requirements": {
+        "dem": true,
+        "slope": false,
+        "lulc": true,
+        "road": false,
+        "water": true,
+        "building": false
+      },
+      "output_paths": {
+        "dem_raster": null,
+        "slope_raster": null,
+        "lulc_raster": null
+      }
+    }
+  }
+]
