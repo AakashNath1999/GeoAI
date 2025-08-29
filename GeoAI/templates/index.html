@@ -99,6 +99,10 @@
     .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 0.9s infinite ease-in-out; }
     @keyframes pulse { 0%,100%{ opacity:.4 } 50%{ opacity:1 } }
 
+    /* Ensure Leaflet right-side controls hug the map edge nicely */
+    .leaflet-top.leaflet-right { right: 12px; }
+    .leaflet-bottom.leaflet-right { right: 12px; }
+
     /* Mobile: collapse to bottom panel */
     @media (max-width: 900px) {
       #map { inset: 0 0 320px 0; }
@@ -148,12 +152,20 @@
 
   <script>
     // ---------------- Map init ----------------
-    const map = L.map('map', { zoomControl: true }).setView([17.385, 78.4867], 12);
+    const map = L.map('map', { zoomControl: false }).setView([17.385, 78.4867], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20, attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
+    // Place zoom control on the right
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // Add a scale bar (metric by default here; set imperial: true to show both)
+    L.control.scale({ position: 'bottomright', imperial: false, maxWidth: 200 }).addTo(map);
+
     let routeLayer = null;
+    let pollTimer = null;
+    let lastLogLen = 0;
 
     // --------------- UI helpers ---------------
     const $ = (id) => document.getElementById(id);
@@ -193,46 +205,79 @@
     }
 
     // --------------- Async flow ---------------
-    let pollTimer = null;
-    let lastLogLen = 0;
+    // Keep the most recent map context here
+let lastCtx = null;
+let lastCtxLayer = null; // rectangle overlay to visualize what we send
 
-    async function startTask() {
-      const prompt = $('prompt').value.trim();
-      if (!prompt) { alert('Please enter a prompt'); $('prompt').focus(); return; }
+function captureCtx() {
+  const c = map.getCenter();
+  const b = map.getBounds();
+  lastCtx = {
+    center: { lat: c.lat, lon: c.lng },
+    bounds: {
+      south: b.getSouth(),
+      west:  b.getWest(),
+      north: b.getNorth(),
+      east:  b.getEast()
+    },
+    zoom: map.getZoom()
+  };
+  // draw/update a rectangle so you SEE the current bounds
+  const sw = L.latLng(lastCtx.bounds.south, lastCtx.bounds.west);
+  const ne = L.latLng(lastCtx.bounds.north, lastCtx.bounds.east);
+  const rect = L.latLngBounds(sw, ne);
+  if (lastCtxLayer) lastCtxLayer.remove();
+  lastCtxLayer = L.rectangle(rect, { weight: 1, dashArray: "4,4" }).addTo(map);
+}
 
-      setLoading(true);
-      setStatus('Starting…');
-      setProgress('Starting…', 1);
-      $('log-box').textContent = '';
-      lastLogLen = 0;
+map.whenReady(captureCtx);
+map.on('moveend', captureCtx);
+map.on('zoomend', captureCtx);
 
-      // Kick off backend
-      const res = await fetch('/api/run', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ prompt })
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        setLoading(false);
-        setStatus('Error');
-        appendLogs([`[client] Failed to start: ${data.error || 'unknown'}`]);
-        return;
-      }
+async function startTask() {
+  const prompt = $('prompt').value.trim();
+  if (!prompt) { alert('Please enter a prompt'); $('prompt').focus(); return; }
 
-      // Poll status+logs
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(pollOnce, 1000);
-    }
+  // Use the freshest captured context; if somehow null, capture now
+  if (!lastCtx) captureCtx();
+  const ui_context = lastCtx;
+
+  // DEBUG to your UI logs and console so you can see Delhi (or Hyd)
+  appendLogs([`[client] sending ui_context center=(${ui_context.center.lat.toFixed(5)}, ${ui_context.center.lon.toFixed(5)})`]);
+  appendLogs([`[client] sending bounds S=${ui_context.bounds.south.toFixed(5)} W=${ui_context.bounds.west.toFixed(5)} N=${ui_context.bounds.north.toFixed(5)} E=${ui_context.bounds.east.toFixed(5)}`]);
+  console.log('[create] ui_context', ui_context);
+
+  setLoading(true);
+  setStatus('Starting…');
+  setProgress('Starting…', 1);
+  $('log-box').textContent = '';
+  lastLogLen = 0;
+
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ prompt, ui_context })
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    setLoading(false);
+    setStatus('Error');
+    appendLogs([`[client] Failed to start: ${data.error || 'unknown'}`]);
+    return;
+  }
+
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollOnce, 1000);
+}
 
     async function pollOnce() {
-      try {
-        const [statRes, logsRes] = await Promise.all([
-          fetch('/api/status'),
-          fetch('/api/logs')
-        ]);
-        const stat = await statRes.json();
-        const logData = await logsRes.json();
+  try {
+    const [statRes, logsRes] = await Promise.all([
+  fetch('/api/status', { cache: 'no-store' }),
+  fetch('/api/logs',   { cache: 'no-store' })
+]);
+    const stat = await statRes.json();
+    const logData = await logsRes.json();
 
         setStatus(stat.status);
         setProgress(stat.step || stat.status, stat.percent ?? 0);
