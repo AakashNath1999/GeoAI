@@ -12,8 +12,6 @@ from contextlib import redirect_stdout, redirect_stderr
 
 from flask import Flask, request, jsonify, render_template
 
-# NOTE: We no longer import fiona/shapely/pyproj because we don't convert SHP → GeoJSON anymore.
-
 # -----------------------------------------------------------------------------
 # Project bootstrapping
 # -----------------------------------------------------------------------------
@@ -93,6 +91,9 @@ def _log(msg: str, level=logging.INFO):
 def _read_task(json_path: Path) -> dict:
     return json.loads(Path(json_path).read_text(encoding="utf-8"))
 
+def _write_task(json_path: Path, data: dict):
+    Path(json_path).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
 def _ensure_task_id(task: dict, task_json_path: Path) -> str:
     """Guarantee a task_id in the JSON; if missing, create one and persist it."""
     tid = task.get("task_id")
@@ -100,7 +101,7 @@ def _ensure_task_id(task: dict, task_json_path: Path) -> str:
         tid = str(uuid.uuid4())
         task["task_id"] = tid
         try:
-            task_json_path.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+            _write_task(task_json_path, task)
             _log(f"[fix] Injected missing task_id into task JSON: {tid}")
         except Exception as e:
             _log(f"[warn] Could not persist injected task_id: {e}")
@@ -111,7 +112,6 @@ def _route_geojson_from_task(task: dict) -> Path:
     return Path(data_dir) / f"route_{task['task_id']}.geojson"
 
 def _glob_latest_geojson(download_dir: Path) -> Optional[Path]:
-    # Prefer route_* first, then any *.geojson
     candidates = glob.glob(str(download_dir / "route_*.geojson"))
     if not candidates:
         candidates = glob.glob(str(download_dir / "*.geojson"))
@@ -123,7 +123,6 @@ def _safe_under(base: Path, candidate: Path) -> bool:
     try:
         return candidate.resolve().is_relative_to(base.resolve())
     except AttributeError:
-        # py<3.9 fallback
         base_resolved = str(base.resolve())
         cand_resolved = str(candidate.resolve())
         return cand_resolved.startswith(base_resolved)
@@ -141,6 +140,78 @@ def _list_json_like(download_dir: Path):
             except FileNotFoundError:
                 continue
     return files
+
+def _sanitize_ui_context(ui: Any) -> Dict[str, Any]:
+    """
+    Whitelist/normalize ui_context to avoid junk.
+    Expected shape:
+    {
+      "center": {"lat": float, "lon": float},
+      "bounds": {"south": float, "west": float, "north": float, "east": float},
+      "zoom": int
+    }
+    """
+    out: Dict[str, Any] = {}
+    try:
+        if isinstance(ui, dict):
+            c = ui.get("center") or {}
+            if isinstance(c, dict) and all(k in c for k in ("lat", "lon")):
+                out["center"] = {"lat": float(c["lat"]), "lon": float(c["lon"])}
+            b = ui.get("bounds") or {}
+            if isinstance(b, dict) and all(k in b for k in ("south", "west", "north", "east")):
+                out["bounds"] = {
+                    "south": float(b["south"]), "west": float(b["west"]),
+                    "north": float(b["north"]), "east": float(b["east"])
+                }
+            if "zoom" in ui:
+                try:
+                    out["zoom"] = int(ui["zoom"])
+                except Exception:
+                    pass
+    except Exception as e:
+        _log(f"[warn] ui_context sanitize failed: {e}")
+    return out
+
+def _bounds_to_viewbox(ui_bounds: dict):
+    """
+    Convert our UI bounds to Nominatim viewbox tuple.
+    Leaflet gives: south, west, north, east (lat/lon ordering by property names)
+    Nominatim needs: (lon1, lat1, lon2, lat2) == (west, south, east, north)
+    """
+    return (
+        float(ui_bounds["west"]),
+        float(ui_bounds["south"]),
+        float(ui_bounds["east"]),
+        float(ui_bounds["north"]),
+    )
+
+def _persist_ui_context_everywhere(ui_ctx_clean: Dict[str, Any], *, after_llm_task_json: Optional[Path] = None):
+    """
+    Persist ui_context into BOTH:
+      1) The current task JSON returned by get_project_paths() (what many tools read)
+      2) The LLM's task JSON (after LLM has written it), if provided
+    """
+    try:
+        data_dir, current_task_json_path = get_project_paths()
+        current_task_json_path = Path(current_task_json_path)
+        try:
+            cur = _read_task(current_task_json_path)
+        except Exception:
+            cur = {}
+        cur["ui_context"] = ui_ctx_clean
+        _write_task(current_task_json_path, cur)
+        _log(f"ui_context saved to CURRENT task JSON ({current_task_json_path.name}): {ui_ctx_clean}")
+    except Exception as e:
+        _log(f"[warn] Could not persist ui_context to CURRENT task JSON: {e}")
+
+    if after_llm_task_json:
+        try:
+            t = _read_task(after_llm_task_json)
+            t["ui_context"] = ui_ctx_clean
+            _write_task(after_llm_task_json, t)
+            _log(f"ui_context saved to LLM task JSON ({after_llm_task_json.name}): {ui_ctx_clean}")
+        except Exception as e:
+            _log(f"[warn] Could not persist ui_context to LLM task JSON: {e}")
 
 # -----------------------------------------------------------------------------
 # UI Log plumbing: intercept print() and logging from controllers
@@ -210,15 +281,21 @@ def _maybe_bump_progress_from_line(line: str):
             break
 
 # -----------------------------------------------------------------------------
-# Pipeline runner (GeoJSON-first; no SHP dependency)
+# Pipeline runner
 # -----------------------------------------------------------------------------
-def _run_pipeline(prompt: str):
+def _run_pipeline(prompt: str, ui_context: Optional[Dict[str, Any]] = None):
     """Runs your full pipeline in a background thread and updates progress/logs."""
     try:
         _set_progress(status="running", step="Starting…", percent=1, meta={"prompt": prompt})
         _log(f"▶ Task started: {prompt}")
 
-        # 1) LLM builds/updates current_task_info_route.json
+        # 0) If we already have ui_context, persist it immediately to CURRENT task JSON
+        ui_ctx_clean = _sanitize_ui_context(ui_context or {})
+        if ui_ctx_clean:
+            _persist_ui_context_everywhere(ui_ctx_clean)  # current only for now
+            _set_progress(meta={"ui_context": ui_ctx_clean})
+
+        # 1) LLM builds/updates current task JSON (may be a different file)
         _set_progress(step="Parsing prompt via local LLM", percent=10)
         _log("Running main_LLM to build task JSON …")
         task_json_path_str = run_main_llm(prompt)
@@ -227,6 +304,10 @@ def _run_pipeline(prompt: str):
         tid = _ensure_task_id(task, task_json_path)
         _log(f"Task JSON ready: {task_json_path} (task_id={tid})")
         _set_progress(meta={"task_id": tid})
+
+        # 1.1) Inject UI context into BOTH current+LLM task JSONs
+        if ui_ctx_clean:
+            _persist_ui_context_everywhere(ui_ctx_clean, after_llm_task_json=task_json_path)
 
         # 2) Dispatch controllers to compute the route
         _set_progress(step="Dispatching controllers (downloads, rasters, A*)", percent=35)
@@ -243,25 +324,21 @@ def _run_pipeline(prompt: str):
 
         try:
             with redirect_stdout(ui_writer), redirect_stderr(ui_writer):
-                # If you can, pass tid/log_cb/progress_cb into Controller_dispatch
-                # Controller_dispatch(task_id=tid, log_cb=_log, progress_cb=_set_progress)
                 Controller_dispatch()
                 ui_writer.flush()
         finally:
             root_logger.removeHandler(ui_handler)
             root_logger.setLevel(prev_level)
 
-        # 3) GeoJSON output (preferred). Do NOT require/expect SHP.
+        # 3) GeoJSON output
         _set_progress(step="Preparing GeoJSON output", percent=98)
         data_dir, _ = get_project_paths()
 
-        # Prefer the exact file for the current task id
         gj_path = _route_geojson_from_task(task)
         if gj_path.exists():
             fc = json.loads(gj_path.read_text(encoding="utf-8"))
             _log(f"Found GeoJSON: {gj_path}")
         else:
-            # Fallback: the latest route_*.geojson in downloads
             latest = _glob_latest_geojson(Path(data_dir))
             if not latest:
                 raise FileNotFoundError(
@@ -270,7 +347,7 @@ def _run_pipeline(prompt: str):
                 )
             _log(f"[fallback] Using latest GeoJSON: {latest.name}")
             fc = json.loads(latest.read_text(encoding="utf-8"))
-            gj_path = latest  # point meta to what we actually used
+            gj_path = latest
 
         _set_progress(
             status="done", step="Completed", percent=100, finished=True,
@@ -287,8 +364,14 @@ def _run_pipeline(prompt: str):
 # -----------------------------------------------------------------------------
 @app.get("/")
 def home():
-    # Put your Leaflet HTML at templates/index.html
     return render_template("index.html")
+
+@app.after_request
+def add_no_cache_headers(resp):
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 @app.get("/api/health")
 def health():
@@ -304,26 +387,26 @@ def api_logs():
     with _logs_lock:
         return jsonify({"logs": list(_logs)})
 
+@app.after_request
+def add_no_cache(resp):
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
+
 @app.get("/api/route")
 def api_route():
-    """
-    Returns the last produced route as GeoJSON.
-    Preference order:
-      1) route_{task_id}.geojson (exact match)
-      2) latest route_*.geojson in downloads
-    """
     try:
         data_dir, task_json_path = get_project_paths()
         task = _read_task(Path(task_json_path))
         _ensure_task_id(task, Path(task_json_path))
 
-        # 1) exact geojson from task id
         gj_path = _route_geojson_from_task(task)
         if gj_path.exists():
             fc = json.loads(gj_path.read_text(encoding="utf-8"))
             return jsonify({"ok": True, "route": fc, "source": gj_path.name})
 
-        # 2) latest geojson fallback
         latest_gj = _glob_latest_geojson(Path(data_dir))
         if latest_gj and latest_gj.exists():
             fc = json.loads(latest_gj.read_text(encoding="utf-8"))
@@ -338,7 +421,6 @@ def api_route():
 
 @app.get("/api/jsons")
 def api_list_jsons():
-    """List JSON/GeoJSON files available in the downloads folder."""
     try:
         data_dir, _ = get_project_paths()
         files = _list_json_like(Path(data_dir))
@@ -349,10 +431,6 @@ def api_list_jsons():
 
 @app.get("/api/jsons/<path:filename>")
 def api_get_json_file(filename: str):
-    """
-    Return the contents of a JSON/GeoJSON file from the downloads folder.
-    Security: ensures the path stays under downloads directory.
-    """
     try:
         data_dir, _ = get_project_paths()
         target = Path(data_dir) / filename
@@ -366,7 +444,6 @@ def api_get_json_file(filename: str):
         text = target.read_text(encoding="utf-8")
         return jsonify({"ok": True, "name": target.name, "content": json.loads(text)})
     except json.JSONDecodeError:
-        # If it's not valid JSON, still serve as text for debugging
         return jsonify({"ok": True, "name": filename, "content": target.read_text(encoding="utf-8")})
     except Exception as e:
         _log(f"/api/jsons/{filename} error: {e}", logging.ERROR)
@@ -375,15 +452,22 @@ def api_get_json_file(filename: str):
 @app.post("/api/run")
 def api_run():
     """
-    Body: { "prompt": "Give me the optimal road from ..." }
-    Kicks off the long-running pipeline in a background thread.
-    Frontend should poll /api/status and /api/logs,
-    and call /api/route when progress.status === 'done'.
+    Body:
+    {
+      "prompt": "Give me the optimal road from ...",
+      "ui_context": {
+        "center": {"lat": 28.6, "lon": 77.2},
+        "bounds": {"south": ..., "west": ..., "north": ..., "east": ...},
+        "zoom": 12
+      }
+    }
     """
     payload = request.get_json(silent=True) or {}
     prompt = (payload.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"ok": False, "error": "prompt is required"}), 400
+
+    ui_context = _sanitize_ui_context(payload.get("ui_context"))
 
     # Reset state
     with _progress_lock:
@@ -394,13 +478,17 @@ def api_run():
             "started_at": time.time(),
             "finished_at": None,
             "error": None,
-            "meta": {}
+            "meta": {"ui_context": ui_context}  # expose in /api/status for debugging
         })
     with _logs_lock:
         _logs.clear()
+    if ui_context:
+        _log(f"Received ui_context: {ui_context}")
+        # Persist immediately to CURRENT task JSON so early tools read Delhi/Hyd right away
+        _persist_ui_context_everywhere(ui_context)
 
-    # Start background worker
-    t = threading.Thread(target=_run_pipeline, args=(prompt,), daemon=True)
+    # Start background worker (pass ui_context through)
+    t = threading.Thread(target=_run_pipeline, args=(prompt, ui_context), daemon=True)
     t.start()
 
     return jsonify({"ok": True, "message": "Task started"})
@@ -409,5 +497,4 @@ def api_run():
 # Entrypoint
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Dev server
     app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
