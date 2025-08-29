@@ -106,7 +106,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ### 2) Run the app
 ```bash
 conda activate geoai
-python main_phi2.py         # or your chosen entrypoint
+python app.py         # or your chosen entrypoint
 ```
 
 ---
