@@ -1,6 +1,6 @@
 # GeoAI — Agentic Route Planning from Natural Language
 
-> Type: “Give me the optimal route from Gachibowli to Charminar, skip buildup area, hence dont give weight to lulc but avoid existing routes, increase penalty there!! ”  
+> Type: “Give me the optimal route from Gachibowli to Charminar, skip buildup area, avoid existing routes, avoid waterbodies too!! ”  
 > The system fetches DEM/LULC/Slope from Google Earth Engine (GEE), pulls OSM water/buildings/roads, rasterizes, builds a **cost raster**, then computes an **A*** shortest path, and returns a shapefile/GeoJSON.
 
 ---
